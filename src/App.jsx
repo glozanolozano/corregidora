@@ -32,7 +32,8 @@ const ML = ym => ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","N
 const CAT = {
   income:              { label:"Ingreso municipal",          sign:+1, defaultAc:true,  icon:"↓", color:"#2D7A4F" },
   commission:          { label:"Comisión contadores",        sign:-1, defaultAc:true,  icon:"↑", color:"#B8453A" },
-  payroll_team:        { label:"Nómina equipo",              sign:-1, defaultAc:true,  icon:"↑", color:"#B8453A" },
+  payroll_deposit:     { label:"Transferencia a cuenta nómina", sign:-1, defaultAc:true, icon:"↗", color:"#4A5E80" },
+  payroll_team:        { label:"Nómina equipo",              sign:-1, defaultAc:false, icon:"↑", color:"#B8453A" },
   payroll_gl:          { label:"Salario GL",                 sign:-1, defaultAc:true,  icon:"↑", color:"#C07B2C" },
   rebate:              { label:"Reembolso al municipio",     sign:-1, defaultAc:true,  icon:"↑", color:"#C07B2C" },
   reserve_fund:        { label:"Fondo de reserva",           sign:-1, defaultAc:true,  icon:"↑", color:"#4A5E80" },
@@ -77,6 +78,8 @@ const calcLoans   = ms => ms.filter(m=>m.category==="loan_received").reduce((s,m
                          - ms.filter(m=>m.category==="loan_repayment").reduce((s,m)=>s+m.amount,0);
 const calcReserve = ms => ms.filter(m=>m.category==="reserve_fund").reduce((s,m)=>s+m.amount,0)
                          - ms.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
+const calcPayroll = ms => ms.filter(m=>m.category==="payroll_deposit").reduce((s,m)=>s+m.amount,0)
+                         - ms.filter(m=>m.category==="payroll_team").reduce((s,m)=>s+m.amount,0);
 
 // ════════════════════════════════════════════════════
 // EXPORT HELPERS
@@ -120,13 +123,15 @@ const Eyebrow = ({s, children, mb=6}) => (
 // 1. PANEL PRINCIPAL (consolidated)
 // ════════════════════════════════════════════════════
 function DashboardView({s, mvs}) {
-  const balance  = calcBalance(mvs);
-  const loans    = calcLoans(mvs);
-  const reserve  = calcReserve(mvs);
+  const balance    = calcBalance(mvs);
+  const loans      = calcLoans(mvs);
+  const reserve    = calcReserve(mvs);
+  const payrollBal = calcPayroll(mvs);
   const curMonth = "2026-06";
   const mm       = mvs.filter(m=>m.date.startsWith(curMonth));
   const inc      = mm.filter(m=>m.category==="income").reduce((s,m)=>s+m.amount,0);
   const com      = mm.filter(m=>m.category==="commission").reduce((s,m)=>s+m.amount,0);
+  const payDep   = mm.filter(m=>m.category==="payroll_deposit").reduce((s,m)=>s+m.amount,0);
   const payTeam  = mm.filter(m=>m.category==="payroll_team").reduce((s,m)=>s+m.amount,0);
   const payGL    = mm.filter(m=>m.category==="payroll_gl").reduce((s,m)=>s+m.amount,0);
   const reb      = mm.filter(m=>m.category==="rebate").reduce((s,m)=>s+m.amount,0);
@@ -168,18 +173,19 @@ function DashboardView({s, mvs}) {
       </div>
 
       {/* ── ESTATUS GENERAL ── */}
-      <div style={{...section, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden"}}>
+      <div style={{...section, display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden"}}>
         {[
-          {label:"Préstamos pendientes", val:loans, neg:loans>0},
-          {label:"Fondo de reserva",     val:reserve},
-          {label:"Utilidad del mes",     val:profit, signed:true, neg:profit<0},
+          {label:"Préstamos pendientes",   val:loans, neg:loans>0},
+          {label:"Cuenta de nómina",       val:payrollBal},
+          {label:"Fondo de reserva",       val:reserve, bar:true, target:RESERVE_TARGET},
+          {label:"Utilidad del mes",       val:profit, signed:true, neg:profit<0},
         ].map((item,i) => (
           <div key={i} style={{background:s.card, padding:"18px 20px"}}>
             <div style={{fontSize:11, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{item.label}</div>
             <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums", color:item.neg?s.neg:s.text}}>{item.signed?$s(item.val):$n(Math.abs(item.val))}</div>
-            {item.label==="Fondo de reserva"&&(
+            {item.bar&&(
               <div style={{marginTop:8, height:3, background:s.div, borderRadius:2}}>
-                <div style={{height:"100%", width:`${Math.min(100,(reserve/RESERVE_TARGET)*100)}%`, background:s.acc, borderRadius:2, transition:"width .3s"}} />
+                <div style={{height:"100%", width:`${Math.min(100,(item.val/item.target)*100)}%`, background:s.acc, borderRadius:2, transition:"width .3s"}} />
               </div>
             )}
           </div>
@@ -244,14 +250,15 @@ function DashboardView({s, mvs}) {
         <Eyebrow s={s} mb={14}>Egresos — Junio 2026</Eyebrow>
         <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
           {[
-            {label:"Comisión contadores",        val:com},
-            {label:"Nómina equipo",              val:payTeam},
-            {label:"Salario GL",                 val:payGL},
-            {label:"Reembolso al municipio",     val:reb},
-            {label:"Fondo de reserva",           val:rsv},
-            {label:"Gastos extraordinarios",     val:ext},
-            {label:"Pago préstamos al socio",    val:loanPay},
-            {label:"Retiro del socio",           val:dist},
+            {label:"Comisión contadores",              val:com},
+            {label:"Transferencia a cuenta nómina",    val:payDep},
+            {label:"Nómina equipo (pagada)",           val:payTeam},
+            {label:"Salario GL",                       val:payGL},
+            {label:"Reembolso al municipio",           val:reb},
+            {label:"Fondo de reserva",                 val:rsv},
+            {label:"Gastos extraordinarios",           val:ext},
+            {label:"Pago préstamos al socio",          val:loanPay},
+            {label:"Retiro del socio",                 val:dist},
           ].map((item,i,arr) => (
             <div key={i} style={{...row, padding:"11px 18px", borderBottom:i<arr.length-1?`1px solid ${s.div}`:"none"}}>
               <span style={labelSt}>{item.label}</span>
