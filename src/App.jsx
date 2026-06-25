@@ -416,12 +416,24 @@ function SettingsView({s}) {
 // 5. RETORNOS MUNICIPIO
 // ════════════════════════════════════════════════════
 const REBATE_SEED = [
-  { id:"r1", contract:"piramides",      month:"2026-04", amount:150000,   date:"2026-04-28", status:"pagado"   },
-  { id:"r2", contract:"socializadores", month:"2026-04", amount:50000,    date:"2026-04-28", status:"pagado"   },
-  { id:"r3", contract:"piramides",      month:"2026-05", amount:150000,   date:"2026-05-30", status:"pagado"   },
-  { id:"r4", contract:"socializadores", month:"2026-05", amount:0,        date:null,         status:"pendiente"},
-  { id:"r5", contract:"piramides",      month:"2026-06", amount:51181.81, date:"2026-06-23", status:"parcial"  },
-  { id:"r6", contract:"socializadores", month:"2026-06", amount:0,        date:null,         status:"pendiente"},
+  { id:"r01", contract:"piramides",      month:"2026-04", amount:150000,   date:"2026-04-28", status:"pagado"   },
+  { id:"r02", contract:"socializadores", month:"2026-04", amount:50000,    date:"2026-04-28", status:"pagado"   },
+  { id:"r03", contract:"piramides",      month:"2026-05", amount:150000,   date:"2026-05-30", status:"pagado"   },
+  { id:"r04", contract:"socializadores", month:"2026-05", amount:0,        date:null,         status:"pendiente"},
+  { id:"r05", contract:"piramides",      month:"2026-06", amount:51181.81, date:"2026-06-23", status:"parcial"  },
+  { id:"r06", contract:"socializadores", month:"2026-06", amount:0,        date:null,         status:"pendiente"},
+  { id:"r07", contract:"piramides",      month:"2026-07", amount:0,        date:null,         status:"pendiente"},
+  { id:"r08", contract:"socializadores", month:"2026-07", amount:0,        date:null,         status:"pendiente"},
+  { id:"r09", contract:"piramides",      month:"2026-08", amount:0,        date:null,         status:"pendiente"},
+  { id:"r10", contract:"socializadores", month:"2026-08", amount:0,        date:null,         status:"pendiente"},
+  { id:"r11", contract:"piramides",      month:"2026-09", amount:0,        date:null,         status:"pendiente"},
+  { id:"r12", contract:"socializadores", month:"2026-09", amount:0,        date:null,         status:"pendiente"},
+  { id:"r13", contract:"piramides",      month:"2026-10", amount:0,        date:null,         status:"pendiente"},
+  { id:"r14", contract:"socializadores", month:"2026-10", amount:0,        date:null,         status:"pendiente"},
+  { id:"r15", contract:"piramides",      month:"2026-11", amount:0,        date:null,         status:"pendiente"},
+  { id:"r16", contract:"socializadores", month:"2026-11", amount:0,        date:null,         status:"pendiente"},
+  { id:"r17", contract:"piramides",      month:"2026-12", amount:0,        date:null,         status:"pendiente"},
+  { id:"r18", contract:"socializadores", month:"2026-12", amount:0,        date:null,         status:"pendiente"},
 ];
 
 function RebatesView({s}) {
@@ -429,7 +441,7 @@ function RebatesView({s}) {
   const [fC, setFC]     = useState("all");
   const [editing, setEd]= useState(null);
 
-  const list = data.filter(r => fC==="all" || r.contract===fC).sort((a,b) => b.month.localeCompare(a.month) || a.contract.localeCompare(b.contract));
+  const list = data.filter(r => fC==="all" || r.contract===fC).sort((a,b) => a.month.localeCompare(b.month) || a.contract.localeCompare(b.contract));
 
   const summary = (cid) => {
     const rows   = data.filter(r => r.contract===cid);
