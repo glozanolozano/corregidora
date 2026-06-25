@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { supabase } from "./supabase";
 
 // ════════════════════════════════════════════════════
 // DESIGN TOKENS
@@ -37,24 +38,7 @@ const CAT = {
   profit_distribution: { label:"Retiro del socio",           sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
 };
 
-// ════════════════════════════════════════════════════
-// SEED DATA
-// ════════════════════════════════════════════════════
-const SEED = [
-  { id:1,  date:"2026-04-15", contract:"piramides", category:"payroll",             amount:200000,    desc:"Nómina equipo (quincena)",          method:"wire",  by:"owner" },
-  { id:2,  date:"2026-04-15", contract:"piramides", category:"loan_received",       amount:200000,    desc:"Préstamo del socio — anticipo abr", method:null,    by:"owner" },
-  { id:3,  date:"2026-05-15", contract:"piramides", category:"payroll",             amount:130000,    desc:"Nómina equipo (quincena)",          method:"wire",  by:"owner" },
-  { id:4,  date:"2026-05-15", contract:"piramides", category:"loan_received",       amount:130000,    desc:"Préstamo del socio — anticipo may", method:null,    by:"owner" },
-  { id:5,  date:"2026-06-09", contract:"piramides", category:"income",              amount:854545.45, desc:"Ingreso municipal mayo",            method:null,    by:"owner" },
-  { id:6,  date:"2026-06-09", contract:"piramides", category:"commission",          amount:68363.64,  desc:"Comisión contadores 8%",            method:null,    by:"owner" },
-  { id:7,  date:"2026-06-12", contract:"piramides", category:"loan_repayment",      amount:100000,    desc:"Pago de préstamo al socio",         method:"wire",  by:"owner" },
-  { id:8,  date:"2026-06-15", contract:"piramides", category:"payroll",             amount:380000,    desc:"Nómina equipo (quincena)",          method:"wire",  by:"assistant" },
-  { id:9,  date:"2026-06-16", contract:"piramides", category:"loan_repayment",      amount:191182,    desc:"Pago de préstamo al socio",         method:"wire",  by:"owner" },
-  { id:10, date:"2026-06-16", contract:"piramides", category:"profit_distribution", amount:15000,     desc:"Retiro del socio",                 method:"cash",  by:"owner" },
-  { id:11, date:"2026-06-19", contract:"piramides", category:"payroll",             amount:25000,     desc:"Nómina equipo (ajuste)",            method:"wire",  by:"assistant" },
-  { id:12, date:"2026-06-22", contract:"piramides", category:"loan_repayment",      amount:23818,     desc:"Pago de préstamo al socio",         method:"wire",  by:"owner" },
-  { id:13, date:"2026-06-23", contract:"piramides", category:"rebate",              amount:51181.81,  desc:"Reembolso mensual al municipio",    method:"cash",  by:"owner" },
-];
+// Data loaded from Supabase at runtime
 
 // ════════════════════════════════════════════════════
 // HELPERS
@@ -377,6 +361,31 @@ function IncomeView({s, mvs}) {
 function SettingsView({s}) {
   const [cfg, setCfg] = useState({piramides:{monthly:854545.45,commission:8,rebate:150000},socializadores:{monthly:357517.25,commission:8,rebate:50000}});
   const [rsv, setRsv] = useState(140000);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const {data} = await supabase.from("app_settings").select("*").eq("id",1).single();
+      if (data) {
+        setCfg({
+          piramides:{monthly:+data.piramides_monthly, commission:+data.piramides_commission, rebate:+data.piramides_rebate},
+          socializadores:{monthly:+data.socializadores_monthly, commission:+data.socializadores_commission, rebate:+data.socializadores_rebate},
+        });
+        setRsv(+data.reserve_target);
+      }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    await supabase.from("app_settings").update({
+      piramides_monthly:cfg.piramides.monthly, piramides_commission:cfg.piramides.commission, piramides_rebate:cfg.piramides.rebate,
+      socializadores_monthly:cfg.socializadores.monthly, socializadores_commission:cfg.socializadores.commission, socializadores_rebate:cfg.socializadores.rebate,
+      reserve_target:rsv,
+    }).eq("id",1);
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  };
+
   const inp = {width:"100%", padding:"10px 14px", fontSize:14, fontFamily:"inherit", background:s.inputBg, border:`1px solid ${s.div}`, borderRadius:8, color:s.text, outline:"none", boxSizing:"border-box", fontVariantNumeric:"tabular-nums"};
   const lbl = {fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:6, display:"block"};
 
@@ -394,7 +403,6 @@ function SettingsView({s}) {
     <div style={{padding:"32px 24px", maxWidth:500, margin:"0 auto"}}>
       <Eyebrow s={s} mb={6}>Administración</Eyebrow>
       <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em", marginBottom:28}}>Configuración</div>
-      {/* PHASE 2: Supabase persistence */}
       {["piramides","socializadores"].map(cid => (
         <div key={cid} style={{border:`1px solid ${s.div}`, borderRadius:10, padding:20, marginBottom:16}}>
           <div style={{fontSize:15, fontWeight:600, marginBottom:16, paddingBottom:14, borderBottom:`1px solid ${s.div}`}}>{CONTRACTS[cid].label}</div>
@@ -407,7 +415,9 @@ function SettingsView({s}) {
         <div style={{fontSize:15, fontWeight:600, marginBottom:16, paddingBottom:14, borderBottom:`1px solid ${s.div}`}}>Fondo de reserva</div>
         <Field label="Meta mensual combinada" val={rsv} onChange={setRsv} />
       </div>
-      <button style={{width:"100%", padding:13, fontSize:14, fontWeight:600, background:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit"}}>Guardar cambios</button>
+      <button onClick={handleSave} style={{width:"100%", padding:13, fontSize:14, fontWeight:600, background:saved?s.green:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit", transition:"background .2s"}}>
+        {saved?"Guardado ✓":"Guardar cambios"}
+      </button>
     </div>
   );
 }
@@ -415,31 +425,19 @@ function SettingsView({s}) {
 // ════════════════════════════════════════════════════
 // 5. RETORNOS MUNICIPIO
 // ════════════════════════════════════════════════════
-const REBATE_SEED = [
-  { id:"r01", contract:"piramides",      month:"2026-04", amount:150000,   date:"2026-04-28", status:"pagado"   },
-  { id:"r02", contract:"socializadores", month:"2026-04", amount:50000,    date:"2026-04-28", status:"pagado"   },
-  { id:"r03", contract:"piramides",      month:"2026-05", amount:150000,   date:"2026-05-30", status:"pagado"   },
-  { id:"r04", contract:"socializadores", month:"2026-05", amount:0,        date:null,         status:"pendiente"},
-  { id:"r05", contract:"piramides",      month:"2026-06", amount:51181.81, date:"2026-06-23", status:"parcial"  },
-  { id:"r06", contract:"socializadores", month:"2026-06", amount:0,        date:null,         status:"pendiente"},
-  { id:"r07", contract:"piramides",      month:"2026-07", amount:0,        date:null,         status:"pendiente"},
-  { id:"r08", contract:"socializadores", month:"2026-07", amount:0,        date:null,         status:"pendiente"},
-  { id:"r09", contract:"piramides",      month:"2026-08", amount:0,        date:null,         status:"pendiente"},
-  { id:"r10", contract:"socializadores", month:"2026-08", amount:0,        date:null,         status:"pendiente"},
-  { id:"r11", contract:"piramides",      month:"2026-09", amount:0,        date:null,         status:"pendiente"},
-  { id:"r12", contract:"socializadores", month:"2026-09", amount:0,        date:null,         status:"pendiente"},
-  { id:"r13", contract:"piramides",      month:"2026-10", amount:0,        date:null,         status:"pendiente"},
-  { id:"r14", contract:"socializadores", month:"2026-10", amount:0,        date:null,         status:"pendiente"},
-  { id:"r15", contract:"piramides",      month:"2026-11", amount:0,        date:null,         status:"pendiente"},
-  { id:"r16", contract:"socializadores", month:"2026-11", amount:0,        date:null,         status:"pendiente"},
-  { id:"r17", contract:"piramides",      month:"2026-12", amount:0,        date:null,         status:"pendiente"},
-  { id:"r18", contract:"socializadores", month:"2026-12", amount:0,        date:null,         status:"pendiente"},
-];
-
 function RebatesView({s}) {
-  const [data, setData] = useState(REBATE_SEED);
+  const [data, setData] = useState([]);
   const [fC, setFC]     = useState("all");
   const [editing, setEd]= useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRebates = useCallback(async () => {
+    const {data:rows} = await supabase.from("rebates").select("*").order("month").order("contract");
+    if (rows) setData(rows.map(r => ({...r, amount:+r.amount})));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchRebates(); }, [fetchRebates]);
 
   const list = data.filter(r => fC==="all" || r.contract===fC).sort((a,b) => a.month.localeCompare(b.month) || a.contract.localeCompare(b.contract));
 
@@ -543,7 +541,7 @@ function RebatesView({s}) {
                 <div><label style={lbl}>Fecha de pago</label><input type="date" value={editing.date||""} onChange={e=>setEd({...editing,date:e.target.value||null})} style={inp} /></div>
               </div>
               <div><label style={lbl}>Estatus</label><select value={editing.status} onChange={e=>setEd({...editing,status:e.target.value})} style={{...inp,cursor:"pointer"}}><option value="pagado">Pagado</option><option value="parcial">Parcial</option><option value="pendiente">Pendiente</option></select></div>
-              <button onClick={()=>{setData(p=>p.map(r=>r.id===editing.id?editing:r));setEd(null);}} style={{padding:13, fontSize:14, fontWeight:600, background:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit", marginTop:4}}>Guardar cambios</button>
+              <button onClick={async ()=>{await supabase.from("rebates").update({amount:editing.amount, date:editing.date, status:editing.status}).eq("id",editing.id);setEd(null);fetchRebates();}} style={{padding:13, fontSize:14, fontWeight:600, background:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit", marginTop:4}}>Guardar cambios</button>
             </div>
           </div>
         </>
@@ -625,11 +623,20 @@ export default function Corregidora() {
   const [view,    setView]    = useState("dashboard");
   const [role,    setRole]    = useState("owner");
   const [drawer,  setDrawer]  = useState(false);
-  const [mvs,     setMvs]     = useState(SEED);
+  const [mvs,     setMvs]     = useState([]);
   const [adding,  setAdding]  = useState(false);
   const [editing, setEditing] = useState(null);
   const [mobile,  setMobile]  = useState(typeof window!=="undefined" && window.innerWidth < 700);
+  const [loading, setLoading] = useState(true);
   const s = dark ? DARK : LIGHT;
+
+  const fetchMovements = useCallback(async () => {
+    const {data} = await supabase.from("movements").select("*").order("date", {ascending:false}).order("created_at", {ascending:false});
+    if (data) setMvs(data.map(m => ({...m, desc:m.description, by:m.role, amount:+m.amount})));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchMovements(); }, [fetchMovements]);
 
   useEffect(()=>{
     const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@280;300;400;500;600;700&display=swap"; document.head.appendChild(l);
@@ -682,7 +689,7 @@ export default function Corregidora() {
 
   const VIEWS = {
     dashboard:        <DashboardView s={s} mvs={mvs} />,
-    movements:        <MovementsView s={s} mvs={mvs} role={role} onAdd={()=>setAdding(true)} onEdit={m=>setEditing(m)} onDelete={id=>setMvs(p=>p.filter(m=>m.id!==id))} />,
+    movements:        <MovementsView s={s} mvs={mvs} role={role} onAdd={()=>setAdding(true)} onEdit={m=>setEditing(m)} onDelete={async(id)=>{await supabase.from("movements").delete().eq("id",id);fetchMovements();}} />,
     rebates:          <RebatesView s={s} />,
     income_statement: <IncomeView s={s} mvs={mvs} />,
     settings:         <SettingsView s={s} />,
@@ -719,8 +726,17 @@ export default function Corregidora() {
       {/* Modals */}
       {(adding||editing) && (
         <MovementModal s={s} movement={editing} role={role}
-          onSave={m=>{if(editing){setMvs(p=>p.map(x=>x.id===editing.id?{...editing,...m}:x));setEditing(null);}else{setMvs(p=>[...p,{...m,id:Date.now(),by:role}]);setAdding(false);}}}
-          onDelete={id=>{setMvs(p=>p.filter(m=>m.id!==id));}}
+          onSave={async(m)=>{
+            if(editing){
+              await supabase.from("movements").update({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc, method:m.method||null}).eq("id",editing.id);
+              setEditing(null);
+            } else {
+              await supabase.from("movements").insert({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc||'', method:m.method||null, role:role});
+              setAdding(false);
+            }
+            fetchMovements();
+          }}
+          onDelete={async(id)=>{await supabase.from("movements").delete().eq("id",id);fetchMovements();}}
           onClose={()=>{setAdding(false);setEditing(null);}}
         />
       )}
