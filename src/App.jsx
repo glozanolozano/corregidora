@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "./supabase";
+import * as XLSX from "xlsx";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 
 // ════════════════════════════════════════════════════
 // DESIGN TOKENS
@@ -75,8 +78,39 @@ const calcReserve = ms => ms.filter(m=>m.category==="reserve_fund").reduce((s,m)
                          - ms.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
 
 // ════════════════════════════════════════════════════
-// UI PRIMITIVES
+// EXPORT HELPERS
 // ════════════════════════════════════════════════════
+const $raw = (n, d=2) => new Intl.NumberFormat("es-MX",{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+
+const exportExcel = (rows, cols, filename) => {
+  const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Datos");
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+};
+
+const exportPDF = (title, cols, rows, filename, landscape=false) => {
+  const doc = new jsPDF({orientation:landscape?"l":"p", unit:"mm", format:"letter"});
+  doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text(title, 14, 18);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.text(`Generado: ${new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}`, 14, 24);
+  doc.autoTable({
+    startY:30, head:[cols], body:rows,
+    styles:{fontSize:8, cellPadding:2.5, font:"helvetica"},
+    headStyles:{fillColor:[74,95,128], textColor:255, fontStyle:"bold"},
+    alternateRowStyles:{fillColor:[248,248,248]},
+    margin:{left:14,right:14},
+  });
+  doc.save(`${filename}.pdf`);
+};
+
+const ExportBar = ({s, onExcel, onPDF}) => (
+  <div style={{display:"flex", gap:8}}>
+    <button onClick={onExcel} style={{display:"flex", alignItems:"center", gap:5, padding:"7px 12px", fontSize:12, fontWeight:500, fontFamily:"inherit", border:`1px solid ${s.div}`, borderRadius:7, background:s.inputBg, color:s.sub, cursor:"pointer"}}>↓ Excel</button>
+    <button onClick={onPDF} style={{display:"flex", alignItems:"center", gap:5, padding:"7px 12px", fontSize:12, fontWeight:500, fontFamily:"inherit", border:`1px solid ${s.div}`, borderRadius:7, background:s.inputBg, color:s.sub, cursor:"pointer"}}>↓ PDF</button>
+  </div>
+);
 const Eyebrow = ({s, children, mb=6}) => (
   <div style={{fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:s.sub, marginBottom:mb}}>{children}</div>
 );
@@ -221,9 +255,21 @@ function MovementsView({s, mvs, role, onAdd, onEdit, onDelete}) {
           <Eyebrow s={s} mb={6}>Libro mayor</Eyebrow>
           <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em"}}>Movimientos</div>
         </div>
-        <button onClick={onAdd} style={{display:"flex", alignItems:"center", gap:6, padding:"10px 18px", borderRadius:8, background:s.acc, color:"#fff", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:500}}>
-          + Nuevo
-        </button>
+        <div style={{display:"flex", gap:8, alignItems:"center"}}>
+          <ExportBar s={s}
+            onExcel={()=>{
+              const rows = list.map(m=>[m.date, CONTRACTS[m.contract].label, CAT[m.category].label, CAT[m.category].sign>0?m.amount:-m.amount, m.method==="wire"?"Transferencia":m.method==="cash"?"Efectivo":"", m.desc, m.by==="assistant"?"Asistente":"Propietario"]);
+              exportExcel(rows, ["Fecha","Contrato","Categoría","Monto","Método","Descripción","Registrado por"], "movimientos");
+            }}
+            onPDF={()=>{
+              const rows = list.map(m=>[fmtDate(m.date), CONTRACTS[m.contract].label, CAT[m.category].label, `$${$raw(CAT[m.category].sign>0?m.amount:-m.amount)}`, m.method==="wire"?"Transf.":m.method==="cash"?"Efectivo":"—", m.desc]);
+              exportPDF("Movimientos — Corregidora", ["Fecha","Contrato","Categoría","Monto","Método","Descripción"], rows, "movimientos", true);
+            }}
+          />
+          <button onClick={onAdd} style={{display:"flex", alignItems:"center", gap:6, padding:"10px 18px", borderRadius:8, background:s.acc, color:"#fff", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:500}}>
+            + Nuevo
+          </button>
+        </div>
       </div>
 
       <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:24}}>
@@ -307,8 +353,24 @@ function IncomeView({s, mvs}) {
 
   return (
     <div style={{padding:"32px 24px", maxWidth:1100, margin:"0 auto"}}>
-      <Eyebrow s={s} mb={6}>2026</Eyebrow>
-      <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em", marginBottom:24}}>Estado de resultados</div>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4}}>
+        <div>
+          <Eyebrow s={s} mb={6}>2026</Eyebrow>
+          <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em"}}>Estado de resultados</div>
+        </div>
+        <ExportBar s={s}
+          onExcel={()=>{
+            const header = ["Concepto", ...MONTHS_ALL.map(ym=>ML(ym))];
+            const rows = ROWS.map(row => [row.label, ...data.map(d => d[row.key]===0?"":(["com","pay","reb","rsv","ext","dist"].includes(row.key)?-d[row.key]:d[row.key]))]);
+            exportExcel(rows, header, `estado_resultados_${tab}`);
+          }}
+          onPDF={()=>{
+            const header = ["Concepto", ...MONTHS_ALL.map(ym=>ML(ym))];
+            const rows = ROWS.map(row => [row.label, ...data.map(d => {const v=d[row.key]; const isE=["com","pay","reb","rsv","ext","dist"].includes(row.key); return v===0?"—":isE?`-$${$raw(v,0)}`:`$${$raw(v,0)}`;})]);
+            exportPDF(`Estado de resultados — ${TABS.find(t=>t.id===tab).label}`, header, rows, `estado_resultados_${tab}`, true);
+          }}
+        />
+      </div>
 
       <div style={{display:"flex", gap:0, marginBottom:28, background:s.surf, borderRadius:8, padding:3, width:"fit-content"}}>
         {TABS.map(t => (
@@ -465,8 +527,22 @@ function RebatesView({s}) {
 
   return (
     <div style={{padding:"32px 24px", maxWidth:800, margin:"0 auto"}}>
-      <Eyebrow s={s} mb={6}>Control de reembolsos</Eyebrow>
-      <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em", marginBottom:28}}>Retornos municipio</div>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:28}}>
+        <div>
+          <Eyebrow s={s} mb={6}>Control de reembolsos</Eyebrow>
+          <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em"}}>Retornos municipio</div>
+        </div>
+        <ExportBar s={s}
+          onExcel={()=>{
+            const rows = list.map(r=>[CONTRACTS[r.contract].label, `${ML(r.month)} 2026`, CONTRACTS[r.contract].rebate, r.amount, r.date||"", r.status]);
+            exportExcel(rows, ["Contrato","Mes","Esperado","Pagado","Fecha","Estatus"], "retornos_municipio");
+          }}
+          onPDF={()=>{
+            const rows = list.map(r=>[CONTRACTS[r.contract].label, `${ML(r.month)} 2026`, `$${$raw(CONTRACTS[r.contract].rebate,0)}`, r.amount>0?`$${$raw(r.amount,0)}`:"—", r.date?fmtDate(r.date):"—", r.status]);
+            exportPDF("Retornos municipio — Corregidora", ["Contrato","Mes","Esperado","Pagado","Fecha","Estatus"], rows, "retornos_municipio");
+          }}
+        />
+      </div>
 
       {/* Summary */}
       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden", marginBottom:28}}>
