@@ -172,11 +172,11 @@ function DashboardView({s, mvs}) {
         {[
           {label:"Préstamos pendientes", val:loans, neg:loans>0},
           {label:"Fondo de reserva",     val:reserve},
-          {label:"Utilidad del mes",     val:profit},
+          {label:"Utilidad del mes",     val:profit, signed:true, neg:profit<0},
         ].map((item,i) => (
           <div key={i} style={{background:s.card, padding:"18px 20px"}}>
             <div style={{fontSize:11, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{item.label}</div>
-            <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums", color:item.neg?s.neg:s.text}}>{$n(Math.abs(item.val))}</div>
+            <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums", color:item.neg?s.neg:s.text}}>{item.signed?$s(item.val):$n(Math.abs(item.val))}</div>
             {item.label==="Fondo de reserva"&&(
               <div style={{marginTop:8, height:3, background:s.div, borderRadius:2}}>
                 <div style={{height:"100%", width:`${Math.min(100,(reserve/RESERVE_TARGET)*100)}%`, background:s.acc, borderRadius:2, transition:"width .3s"}} />
@@ -200,8 +200,8 @@ function DashboardView({s, mvs}) {
               {accumData.map((d,i) => (
                 <div key={d.ym} style={{display:"grid", gridTemplateColumns:"0.7fr 1fr 1fr 1fr 1fr", padding:"11px 18px", borderBottom:i<accumData.length-1?`1px solid ${s.div}`:"none", opacity:d.hasData?1:0.35}}>
                   <div style={{fontSize:14, fontWeight:500}}>{ML(d.ym)}</div>
-                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.profit<0?s.neg:d.profit>0?s.text:s.muted}}>{d.hasData?$n(d.profit):"—"}</div>
-                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:d.profitAcc<0?s.neg:s.text}}>{d.hasData?$n(d.profitAcc):"—"}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.profit<0?s.neg:d.profit>0?s.text:s.muted}}>{d.hasData?$s(d.profit):"—"}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:d.profitAcc<0?s.neg:s.text}}>{d.hasData?$s(d.profitAcc):"—"}</div>
                   <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.reserve>0?s.text:s.muted}}>{d.hasData&&d.reserve>0?$n(d.reserve):"—"}</div>
                   <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:s.text}}>{d.reserveAcc>0?$n(d.reserveAcc):"—"}</div>
                 </div>
@@ -410,7 +410,7 @@ function IncomeView({s, mvs}) {
           }}
           onPDF={()=>{
             const header = ["Concepto", ...MONTHS_ALL.map(ym=>ML(ym))];
-            const rows = ROWS.map(row => [row.label, ...data.map(d => {const v=d[row.key]; const isE=["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key); return v===0?"—":isE?`-$${$raw(v,0)}`:`$${$raw(v,0)}`;})]);
+            const rows = ROWS.map(row => [row.label, ...data.map(d => {const v=d[row.key]; const isE=["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key); if(v===0) return "—"; if(isE) return `-$${$raw(v,0)}`; if(row.bold&&v<0) return `−$${$raw(Math.abs(v),0)}`; return `$${$raw(v,0)}`;})]);
             exportPDF(`Estado de resultados — ${TABS.find(t=>t.id===tab).label}`, header, rows, `estado_resultados_${tab}`, true);
           }}
         />
@@ -444,10 +444,17 @@ function IncomeView({s, mvs}) {
                 {data.map((d,mi) => {
                   const v = d[row.key];
                   const isExp = ["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key);
-                  const col = v===0 ? s.muted : (isExp||v<0) ? s.neg : s.text;
+                  const isTotal = row.bold;
+                  const col = v===0 ? s.muted : (isExp||(isTotal&&v<0)) ? s.neg : s.text;
+                  let display = "—";
+                  if (v !== 0) {
+                    if (isExp) display = `−${$n(v)}`;
+                    else if (isTotal) display = $s(v);
+                    else display = $n(v);
+                  }
                   return (
                     <td key={mi} style={{padding:"14px 14px", fontSize:14, textAlign:"right", fontVariantNumeric:"tabular-nums", fontWeight:row.bold?600:400, color:col, borderBottom:`1px solid ${s.div}`, whiteSpace:"nowrap"}}>
-                      {v===0 ? "—" : isExp ? `−${$n(v)}` : $n(v)}
+                      {display}
                     </td>
                   );
                 })}
