@@ -116,9 +116,6 @@ function DashboardView({s, mvs}) {
   const loanPay  = mm.filter(m=>m.category==="loan_repayment").reduce((s,m)=>s+m.amount,0);
   const totalExp = com+pay+reb+rsv+ext;
   const profit   = inc - totalExp;
-  const pirReb   = mvs.filter(m=>m.contract==="piramides"&&m.category==="rebate"&&m.date.startsWith(curMonth)).reduce((s,m)=>s+m.amount,0);
-  const socReb   = mvs.filter(m=>m.contract==="socializadores"&&m.category==="rebate"&&m.date.startsWith(curMonth)).reduce((s,m)=>s+m.amount,0);
-
   const section = {marginBottom:32};
   const row = {display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0"};
   const divider = {borderBottom:`1px solid ${s.div}`};
@@ -200,33 +197,6 @@ function DashboardView({s, mvs}) {
               <span style={{...valSt, color:item.val>0?s.neg:s.muted}}>{item.val>0?`−${$n(item.val)}`:"—"}</span>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* ── REEMBOLSO MUNICIPAL ── */}
-      <div style={section}>
-        <Eyebrow s={s} mb={14}>Reembolso municipal — Junio 2026</Eyebrow>
-        <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
-          {[
-            {label:"Pirámides",      paid:pirReb, target:CONTRACTS.piramides.rebate},
-            {label:"Socializadores", paid:socReb, target:CONTRACTS.socializadores.rebate},
-          ].map((item,i,arr) => {
-            const pct = Math.min(100,(item.paid/item.target)*100);
-            const ok  = item.paid >= item.target;
-            return (
-              <div key={i} style={{padding:"14px 18px", borderBottom:i<arr.length-1?`1px solid ${s.div}`:"none"}}>
-                <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
-                  <span style={{fontSize:14}}>{item.label}</span>
-                  <span style={{fontSize:13, fontVariantNumeric:"tabular-nums", color:ok?s.green:s.warn, fontWeight:500}}>
-                    {$n(item.paid)} / {$n(item.target)}
-                  </span>
-                </div>
-                <div style={{height:3, background:s.div, borderRadius:2}}>
-                  <div style={{height:"100%", width:`${pct}%`, background:ok?s.green:s.warn, borderRadius:2, transition:"width .3s"}} />
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
 
@@ -443,6 +413,134 @@ function SettingsView({s}) {
 }
 
 // ════════════════════════════════════════════════════
+// 5. RETORNOS MUNICIPIO
+// ════════════════════════════════════════════════════
+const REBATE_SEED = [
+  { id:"r1", contract:"piramides",      month:"2026-04", amount:150000,   date:"2026-04-28", status:"pagado"   },
+  { id:"r2", contract:"socializadores", month:"2026-04", amount:50000,    date:"2026-04-28", status:"pagado"   },
+  { id:"r3", contract:"piramides",      month:"2026-05", amount:150000,   date:"2026-05-30", status:"pagado"   },
+  { id:"r4", contract:"socializadores", month:"2026-05", amount:0,        date:null,         status:"pendiente"},
+  { id:"r5", contract:"piramides",      month:"2026-06", amount:51181.81, date:"2026-06-23", status:"parcial"  },
+  { id:"r6", contract:"socializadores", month:"2026-06", amount:0,        date:null,         status:"pendiente"},
+];
+
+function RebatesView({s}) {
+  const [data, setData] = useState(REBATE_SEED);
+  const [fC, setFC]     = useState("all");
+  const [editing, setEd]= useState(null);
+
+  const list = data.filter(r => fC==="all" || r.contract===fC).sort((a,b) => b.month.localeCompare(a.month) || a.contract.localeCompare(b.contract));
+
+  const summary = (cid) => {
+    const rows   = data.filter(r => r.contract===cid);
+    const target = CONTRACTS[cid].rebate;
+    const paid   = rows.reduce((s,r)=>s+r.amount,0);
+    const months = rows.length;
+    const complete = rows.filter(r=>r.status==="pagado").length;
+    return {paid, total:target*months, complete, months};
+  };
+
+  const badge = (st) => {
+    const map = {
+      pagado:   {bg:`${s.green}18`, color:s.green, label:"Pagado"},
+      parcial:  {bg:`${s.warn}15`,  color:s.warn,  label:"Parcial"},
+      pendiente:{bg:`${s.neg}12`,   color:s.neg,   label:"Pendiente"},
+    };
+    const c = map[st] || map.pendiente;
+    return <span style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", padding:"3px 8px", borderRadius:4, background:c.bg, color:c.color}}>{c.label}</span>;
+  };
+
+  const inp = {width:"100%", padding:"10px 14px", fontSize:14, fontFamily:"inherit", background:s.inputBg, border:`1px solid ${s.div}`, borderRadius:8, color:s.text, outline:"none", boxSizing:"border-box"};
+  const lbl = {display:"block", fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:6};
+
+  return (
+    <div style={{padding:"32px 24px", maxWidth:800, margin:"0 auto"}}>
+      <Eyebrow s={s} mb={6}>Control de reembolsos</Eyebrow>
+      <div style={{fontSize:24, fontWeight:600, letterSpacing:"-0.02em", marginBottom:28}}>Retornos municipio</div>
+
+      {/* Summary */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden", marginBottom:28}}>
+        {["piramides","socializadores"].map(cid => {
+          const sm = summary(cid);
+          const pct = sm.total>0 ? Math.min(100,(sm.paid/sm.total)*100) : 0;
+          return (
+            <div key={cid} style={{background:s.card, padding:"18px 20px"}}>
+              <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{CONTRACTS[cid].label}</div>
+              <div style={{fontSize:22, fontWeight:400, fontVariantNumeric:"tabular-nums"}}>{$n(sm.paid)}</div>
+              <div style={{fontSize:12, color:s.sub, marginTop:4}}>de {$n(sm.total)} esperados · {sm.complete}/{sm.months} completos</div>
+              <div style={{marginTop:10, height:3, background:s.div, borderRadius:2}}>
+                <div style={{height:"100%", width:`${pct}%`, background:pct>=90?s.green:s.warn, borderRadius:2, transition:"width .3s"}} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Filter */}
+      <div style={{marginBottom:20}}>
+        <select value={fC} onChange={e=>setFC(e.target.value)} style={{padding:"10px 14px", fontSize:14, fontFamily:"inherit", border:`1px solid ${s.div}`, borderRadius:8, background:s.inputBg, color:s.text, outline:"none", cursor:"pointer"}}>
+          <option value="all">Todos los contratos</option>
+          <option value="piramides">Pirámides</option>
+          <option value="socializadores">Socializadores</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
+        <div style={{display:"grid", gridTemplateColumns:"1.4fr 1fr 1fr 1fr 0.7fr", padding:"10px 18px", borderBottom:`1px solid ${s.div}`, background:s.surf}}>
+          {["Contrato / Mes","Esperado","Pagado","Fecha","Estatus"].map((h,i) => (
+            <div key={i} style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub, textAlign:i>=1&&i<=3?"right":"left"}}>{h}</div>
+          ))}
+        </div>
+        {list.map((r,i) => {
+          const target = CONTRACTS[r.contract].rebate;
+          return (
+            <div key={r.id} onClick={()=>setEd({...r})} style={{display:"grid", gridTemplateColumns:"1.4fr 1fr 1fr 1fr 0.7fr", padding:"13px 18px", borderBottom:i<list.length-1?`1px solid ${s.div}`:"none", cursor:"pointer", alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14, fontWeight:500}}>{CONTRACTS[r.contract].label}</div>
+                <div style={{fontSize:12, color:s.sub, marginTop:1}}>{ML(r.month)} 2026</div>
+              </div>
+              <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:s.sub}}>{$n(target)}</div>
+              <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:500, color:r.amount>=target?s.text:r.amount>0?s.warn:s.muted}}>{r.amount>0?$n(Math.round(r.amount)):"—"}</div>
+              <div style={{fontSize:13, textAlign:"right", color:s.sub}}>{r.date?fmtDate(r.date):"—"}</div>
+              <div style={{textAlign:"right"}}>{badge(r.status)}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Edit modal */}
+      {editing && (
+        <>
+          <div onClick={()=>setEd(null)} style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:200, backdropFilter:"blur(3px)"}} />
+          <div style={{position:"fixed", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:420, maxHeight:"88vh", overflowY:"auto", background:s.card, borderRadius:14, padding:28, zIndex:201, boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24}}>
+              <div>
+                <Eyebrow s={s} mb={4}>Editar</Eyebrow>
+                <div style={{fontSize:20, fontWeight:600}}>Retorno municipal</div>
+              </div>
+              <button onClick={()=>setEd(null)} style={{background:"none", border:"none", cursor:"pointer", padding:6, fontSize:20, color:s.sub, lineHeight:1}}>✕</button>
+            </div>
+            <div style={{display:"flex", flexDirection:"column", gap:16}}>
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+                <div><label style={lbl}>Contrato</label><div style={{...inp, background:s.surf, color:s.sub}}>{CONTRACTS[editing.contract].label}</div></div>
+                <div><label style={lbl}>Mes correspondiente</label><div style={{...inp, background:s.surf, color:s.sub}}>{ML(editing.month)} 2026</div></div>
+              </div>
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+                <div><label style={lbl}>Monto pagado</label><input type="number" value={editing.amount} onChange={e=>setEd({...editing,amount:+e.target.value||0})} style={inp} /></div>
+                <div><label style={lbl}>Fecha de pago</label><input type="date" value={editing.date||""} onChange={e=>setEd({...editing,date:e.target.value||null})} style={inp} /></div>
+              </div>
+              <div><label style={lbl}>Estatus</label><select value={editing.status} onChange={e=>setEd({...editing,status:e.target.value})} style={{...inp,cursor:"pointer"}}><option value="pagado">Pagado</option><option value="parcial">Parcial</option><option value="pendiente">Pendiente</option></select></div>
+              <button onClick={()=>{setData(p=>p.map(r=>r.id===editing.id?editing:r));setEd(null);}} style={{padding:13, fontSize:14, fontWeight:600, background:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit", marginTop:4}}>Guardar cambios</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════
 // MOVEMENT MODAL (redesigned)
 // ════════════════════════════════════════════════════
 function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
@@ -505,6 +603,7 @@ function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
 const NAV = [
   {id:"dashboard",        label:"Panel principal",     icon:"◉"},
   {id:"movements",        label:"Movimientos",         icon:"☰"},
+  {id:"rebates",          label:"Retornos municipio",  icon:"↩"},
   {id:"income_statement", label:"Estado de resultados",icon:"▤"},
   {id:"settings",         label:"Configuración",       icon:"⚙"},
 ];
@@ -572,6 +671,7 @@ export default function Corregidora() {
   const VIEWS = {
     dashboard:        <DashboardView s={s} mvs={mvs} />,
     movements:        <MovementsView s={s} mvs={mvs} role={role} onAdd={()=>setAdding(true)} onEdit={m=>setEditing(m)} onDelete={id=>setMvs(p=>p.filter(m=>m.id!==id))} />,
+    rebates:          <RebatesView s={s} />,
     income_statement: <IncomeView s={s} mvs={mvs} />,
     settings:         <SettingsView s={s} />,
   };
