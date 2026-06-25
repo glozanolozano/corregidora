@@ -152,17 +152,17 @@ function DashboardView({s, mvs}) {
     });
   }, [mvs]);
 
-  const section = {marginBottom:32};
-  const row = {display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0"};
-  const labelSt = {fontSize:14, color:s.text};
-  const valSt = {fontSize:14, fontVariantNumeric:"tabular-nums", fontWeight:500};
+  const section = {marginBottom:36};
+  const row = {display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 0"};
+  const labelSt = {fontSize:15, color:s.text};
+  const valSt = {fontSize:15, fontVariantNumeric:"tabular-nums", fontWeight:500};
 
   return (
-    <div style={{padding:"32px 24px", maxWidth:700, margin:"0 auto"}}>
+    <div style={{padding:"36px 28px", maxWidth:660, margin:"0 auto"}}>
       {/* ── HERO ── */}
       <div style={section}>
         <Eyebrow s={s} mb={12}>Dinero en manos de contadores</Eyebrow>
-        <div style={{fontSize:56, fontWeight:280, letterSpacing:"-0.03em", lineHeight:1, fontVariantNumeric:"tabular-nums", color:balance<0?s.neg:s.text}}>
+        <div style={{fontSize:60, fontWeight:280, letterSpacing:"-0.03em", lineHeight:1, fontVariantNumeric:"tabular-nums", color:balance<0?s.neg:s.text}}>
           {$n(balance,2)}
         </div>
       </div>
@@ -174,9 +174,9 @@ function DashboardView({s, mvs}) {
           {label:"Fondo de reserva",     val:reserve},
           {label:"Utilidad del mes",     val:profit},
         ].map((item,i) => (
-          <div key={i} style={{background:s.card, padding:"16px 18px"}}>
-            <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{item.label}</div>
-            <div style={{fontSize:22, fontWeight:400, fontVariantNumeric:"tabular-nums", color:item.neg?s.neg:s.text}}>{$n(Math.abs(item.val))}</div>
+          <div key={i} style={{background:s.card, padding:"18px 20px"}}>
+            <div style={{fontSize:11, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{item.label}</div>
+            <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums", color:item.neg?s.neg:s.text}}>{$n(Math.abs(item.val))}</div>
             {item.label==="Fondo de reserva"&&(
               <div style={{marginTop:8, height:3, background:s.div, borderRadius:2}}>
                 <div style={{height:"100%", width:`${Math.min(100,(reserve/RESERVE_TARGET)*100)}%`, background:s.acc, borderRadius:2, transition:"width .3s"}} />
@@ -190,20 +190,24 @@ function DashboardView({s, mvs}) {
       <div style={section}>
         <Eyebrow s={s} mb={14}>Acumulados — Abr a Dic 2026</Eyebrow>
         <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
-          <div style={{display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr", padding:"10px 18px", borderBottom:`1px solid ${s.div}`, background:s.surf}}>
-            {["Mes","Utilidad","Ut. acumulada","Reserva","Rsv. acumulada"].map((h,i) => (
-              <div key={i} style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub, textAlign:i>0?"right":"left"}}>{h}</div>
-            ))}
-          </div>
-          {accumData.map((d,i) => (
-            <div key={d.ym} style={{display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr", padding:"10px 18px", borderBottom:i<accumData.length-1?`1px solid ${s.div}`:"none", opacity:d.hasData?1:0.35}}>
-              <div style={{fontSize:13, fontWeight:500}}>{ML(d.ym)}</div>
-              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.profit<0?s.neg:d.profit>0?s.text:s.muted}}>{d.hasData?$n(d.profit):"—"}</div>
-              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:d.profitAcc<0?s.neg:s.text}}>{d.hasData?$n(d.profitAcc):"—"}</div>
-              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.reserve>0?s.text:s.muted}}>{d.hasData&&d.reserve>0?$n(d.reserve):"—"}</div>
-              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:s.text}}>{d.reserveAcc>0?$n(d.reserveAcc):"—"}</div>
+          <div style={{overflowX:"auto"}}>
+            <div style={{minWidth:500}}>
+              <div style={{display:"grid", gridTemplateColumns:"0.7fr 1fr 1fr 1fr 1fr", padding:"11px 18px", borderBottom:`1px solid ${s.div}`, background:s.surf}}>
+                {["Mes","Utilidad","Ut. acumulada","Reserva","Rsv. acumulada"].map((h,i) => (
+                  <div key={i} style={{fontSize:11, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub, textAlign:i>0?"right":"left"}}>{h}</div>
+                ))}
+              </div>
+              {accumData.map((d,i) => (
+                <div key={d.ym} style={{display:"grid", gridTemplateColumns:"0.7fr 1fr 1fr 1fr 1fr", padding:"11px 18px", borderBottom:i<accumData.length-1?`1px solid ${s.div}`:"none", opacity:d.hasData?1:0.35}}>
+                  <div style={{fontSize:14, fontWeight:500}}>{ML(d.ym)}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.profit<0?s.neg:d.profit>0?s.text:s.muted}}>{d.hasData?$n(d.profit):"—"}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:d.profitAcc<0?s.neg:s.text}}>{d.hasData?$n(d.profitAcc):"—"}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.reserve>0?s.text:s.muted}}>{d.hasData&&d.reserve>0?$n(d.reserve):"—"}</div>
+                  <div style={{fontSize:14, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:s.text}}>{d.reserveAcc>0?$n(d.reserveAcc):"—"}</div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
@@ -220,8 +224,8 @@ function DashboardView({s, mvs}) {
           ].map((item,i,arr) => (
             <div key={i} style={{...row, padding:"13px 18px", borderBottom:i<arr.length-1?`1px solid ${s.div}`:"none"}}>
               <div>
-                <div style={{fontSize:14, fontWeight:500, color:s.text}}>{item.label}</div>
-                <div style={{fontSize:12, color:item.overdue?s.neg:s.sub, marginTop:2}}>{item.date}</div>
+                <div style={{fontSize:15, fontWeight:500, color:s.text}}>{item.label}</div>
+                <div style={{fontSize:13, color:item.overdue?s.neg:s.sub, marginTop:2}}>{item.date}</div>
               </div>
               <div style={{textAlign:"right", display:"flex", alignItems:"center", gap:12}}>
                 <span style={{...valSt, color:s.text}}>{$n(item.amount)}</span>
@@ -261,8 +265,8 @@ function DashboardView({s, mvs}) {
       <div style={{display:"flex", alignItems:"center", gap:12, padding:"14px 18px", border:`1px solid ${s.div}`, borderRadius:10}}>
         <div style={{width:10, height:10, borderRadius:"50%", background:s.warn, flexShrink:0}} />
         <div>
-          <div style={{fontSize:14, fontWeight:500}}>Cierre de junio — incompleto</div>
-          <div style={{fontSize:12, color:s.sub, marginTop:3}}>3 pagos de Socializadores sin registrar. Reembolso Pirámides parcial.</div>
+          <div style={{fontSize:15, fontWeight:500}}>Cierre de junio — incompleto</div>
+          <div style={{fontSize:13, color:s.sub, marginTop:3}}>3 pagos de Socializadores sin registrar. Reembolso Pirámides parcial.</div>
         </div>
       </div>
     </div>
@@ -424,17 +428,17 @@ function IncomeView({s, mvs}) {
       </div>
 
       <div style={{overflowX:"auto", borderRadius:10, border:`1px solid ${s.div}`}}>
-        <table style={{width:"100%", borderCollapse:"collapse", minWidth:700}}>
+        <table style={{width:"100%", borderCollapse:"collapse", minWidth:700, tableLayout:"fixed"}}>
           <thead>
             <tr>
-              <th style={{...thSt, textAlign:"left", position:"sticky", left:0, background:s.card, zIndex:1, minWidth:180}}>Concepto</th>
+              <th style={{...thSt, textAlign:"left", position:"sticky", left:0, background:s.card, zIndex:1, width:"18%"}}>Concepto</th>
               {MONTHS_ALL.map(ym => <th key={ym} style={{...thSt, textAlign:"right"}}>{ML(ym)}</th>)}
             </tr>
           </thead>
           <tbody>
             {ROWS.map(row => (
               <tr key={row.key} style={{borderTop:row.sep?`2px solid ${s.div}`:undefined}}>
-                <td style={{padding:"14px 14px", fontSize:14, fontWeight:row.bold?600:400, color:s.text, borderBottom:`1px solid ${s.div}`, position:"sticky", left:0, background:s.card, zIndex:1}}>
+                <td style={{padding:"14px 14px", fontSize:14, fontWeight:row.bold?600:400, color:s.text, borderBottom:`1px solid ${s.div}`, position:"sticky", left:0, background:s.card, zIndex:1, width:"18%"}}>
                   {row.label}
                 </td>
                 {data.map((d,mi) => {
