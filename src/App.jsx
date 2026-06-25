@@ -30,16 +30,16 @@ const MONTHS_ALL = ["2026-04","2026-05","2026-06","2026-07","2026-08","2026-09",
 const ML = ym => ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][+ym.split("-")[1]-1];
 
 const CAT = {
-  income:              { label:"Ingreso municipal",          sign:+1, ac:true,  icon:"↓", color:"#2D7A4F" },
-  commission:          { label:"Comisión contadores",        sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
-  payroll_team:        { label:"Nómina equipo",              sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
-  payroll_gl:          { label:"Salario GL",                 sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
-  rebate:              { label:"Reembolso al municipio",     sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
-  reserve_fund:        { label:"Fondo de reserva",           sign:-1, ac:true,  icon:"↑", color:"#4A5E80" },
-  extraordinary:       { label:"Gasto extraordinario",       sign:-1, ac:false, icon:"↑", color:"#B8453A" },
-  loan_received:       { label:"Préstamo del socio",         sign:+1, ac:true,  icon:"↓", color:"#4A5E80" },
-  loan_repayment:      { label:"Pago de préstamo al socio",  sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
-  profit_distribution: { label:"Retiro del socio",           sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
+  income:              { label:"Ingreso municipal",          sign:+1, defaultAc:true,  icon:"↓", color:"#2D7A4F" },
+  commission:          { label:"Comisión contadores",        sign:-1, defaultAc:true,  icon:"↑", color:"#B8453A" },
+  payroll_team:        { label:"Nómina equipo",              sign:-1, defaultAc:true,  icon:"↑", color:"#B8453A" },
+  payroll_gl:          { label:"Salario GL",                 sign:-1, defaultAc:true,  icon:"↑", color:"#C07B2C" },
+  rebate:              { label:"Reembolso al municipio",     sign:-1, defaultAc:true,  icon:"↑", color:"#C07B2C" },
+  reserve_fund:        { label:"Fondo de reserva",           sign:-1, defaultAc:true,  icon:"↑", color:"#4A5E80" },
+  extraordinary:       { label:"Gasto extraordinario",       sign:-1, defaultAc:false, icon:"↑", color:"#B8453A" },
+  loan_received:       { label:"Préstamo del socio",         sign:+1, defaultAc:true,  icon:"↓", color:"#4A5E80" },
+  loan_repayment:      { label:"Pago de préstamo al socio",  sign:-1, defaultAc:true,  icon:"↑", color:"#B8453A" },
+  profit_distribution: { label:"Retiro del socio",           sign:-1, defaultAc:true,  icon:"↑", color:"#C07B2C" },
 };
 
 // Data loaded from Supabase at runtime
@@ -72,7 +72,7 @@ const fmtDateFull = d => {
 // ════════════════════════════════════════════════════
 // CALCULATIONS
 // ════════════════════════════════════════════════════
-const calcBalance = ms => ms.reduce((sum,m) => CAT[m.category].ac ? sum + CAT[m.category].sign * m.amount : sum, 0);
+const calcBalance = ms => ms.reduce((sum,m) => m.ac ? sum + CAT[m.category].sign * m.amount : sum, 0);
 const calcLoans   = ms => ms.filter(m=>m.category==="loan_received").reduce((s,m)=>s+m.amount,0)
                          - ms.filter(m=>m.category==="loan_repayment").reduce((s,m)=>s+m.amount,0);
 const calcReserve = ms => ms.filter(m=>m.category==="reserve_fund").reduce((s,m)=>s+m.amount,0)
@@ -134,7 +134,7 @@ function DashboardView({s, mvs}) {
   const ext      = mm.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
   const dist     = mm.filter(m=>m.category==="profit_distribution").reduce((s,m)=>s+m.amount,0);
   const loanPay  = mm.filter(m=>m.category==="loan_repayment").reduce((s,m)=>s+m.amount,0);
-  const totalExp = com+payTeam+payGL+reb+rsv+ext;
+  const totalExp = com+payTeam+payGL+reb+ext;
   const profit   = inc - totalExp;
 
   // Acumulados mes a mes
@@ -143,7 +143,7 @@ function DashboardView({s, mvs}) {
     return MONTHS_ALL.map(ym => {
       const mo = mvs.filter(m=>m.date.startsWith(ym));
       const mInc = mo.filter(m=>m.category==="income").reduce((s,m)=>s+m.amount,0);
-      const mExp = mo.filter(m=>["commission","payroll_team","payroll_gl","rebate","reserve_fund","extraordinary"].includes(m.category)).reduce((s,m)=>s+m.amount,0);
+      const mExp = mo.filter(m=>["commission","payroll_team","payroll_gl","rebate","extraordinary"].includes(m.category)).reduce((s,m)=>s+m.amount,0);
       const mRsv = mo.filter(m=>m.category==="reserve_fund").reduce((s,m)=>s+m.amount,0);
       const mExt = mo.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
       profitAcc += (mInc - mExp);
@@ -375,8 +375,8 @@ function IncomeView({s, mvs}) {
     const mm = mvs.filter(m => m.date.startsWith(ym) && (c==="all" || m.contract===c));
     const sum = k => mm.filter(m=>m.category===k).reduce((s,m)=>s+m.amount,0);
     const inc=sum("income"), com=sum("commission"), payTeam=sum("payroll_team"), payGL=sum("payroll_gl"), reb=sum("rebate"), rsv=sum("reserve_fund"), ext=sum("extraordinary"), dist=sum("profit_distribution");
-    const totalExp = com+payTeam+payGL+reb+rsv+ext;
-    return {inc, com, payTeam, payGL, reb, rsv, ext, gen:inc-totalExp, dist, ret:inc-totalExp-dist};
+    const totalExp = com+payTeam+payGL+reb+ext;
+    return {inc, com, payTeam, payGL, reb, ext, gen:inc-totalExp, rsv, dist, ret:inc-totalExp-dist};
   };
 
   const ROWS = [
@@ -385,9 +385,9 @@ function IncomeView({s, mvs}) {
     {key:"payTeam", label:"Nómina equipo",             bold:false},
     {key:"payGL",   label:"Salario GL",                bold:false},
     {key:"reb",     label:"Reembolso municipio",       bold:false},
-    {key:"rsv",     label:"Fondo de reserva",          bold:false},
     {key:"ext",     label:"Gastos extraordinarios",    bold:false},
     {key:"gen",     label:"Utilidad generada",         bold:true, sep:true},
+    {key:"rsv",     label:"Fondo de reserva",          bold:false, memo:true},
     {key:"dist",    label:"Utilidad distribuida",      bold:false},
     {key:"ret",     label:"Utilidad retenida",         bold:true, sep:true},
   ];
@@ -438,22 +438,23 @@ function IncomeView({s, mvs}) {
           <tbody>
             {ROWS.map(row => (
               <tr key={row.key} style={{borderTop:row.sep?`2px solid ${s.div}`:undefined}}>
-                <td style={{padding:"14px 14px", fontSize:14, fontWeight:row.bold?600:400, color:s.text, borderBottom:`1px solid ${s.div}`, position:"sticky", left:0, background:s.card, zIndex:1, width:"18%"}}>
+                <td style={{padding:"14px 14px", fontSize:14, fontWeight:row.bold?600:400, fontStyle:row.memo?"italic":"normal", color:row.memo?s.sub:s.text, borderBottom:`1px solid ${s.div}`, position:"sticky", left:0, background:s.card, zIndex:1, width:"18%"}}>
                   {row.label}
                 </td>
                 {data.map((d,mi) => {
                   const v = d[row.key];
-                  const isExp = ["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key);
+                  const isExp = ["com","payTeam","payGL","reb","ext","dist"].includes(row.key);
+                  const isMemo = row.memo;
                   const isTotal = row.bold;
-                  const col = v===0 ? s.muted : (isExp||(isTotal&&v<0)) ? s.neg : s.text;
+                  const col = v===0 ? s.muted : isMemo ? s.sub : (isExp||(isTotal&&v<0)) ? s.neg : s.text;
                   let display = "—";
                   if (v !== 0) {
-                    if (isExp) display = `−${$n(v)}`;
+                    if (isExp || isMemo) display = `−${$n(v)}`;
                     else if (isTotal) display = $s(v);
                     else display = $n(v);
                   }
                   return (
-                    <td key={mi} style={{padding:"14px 14px", fontSize:14, textAlign:"right", fontVariantNumeric:"tabular-nums", fontWeight:row.bold?600:400, color:col, borderBottom:`1px solid ${s.div}`, whiteSpace:"nowrap"}}>
+                    <td key={mi} style={{padding:"14px 14px", fontSize:14, textAlign:"right", fontVariantNumeric:"tabular-nums", fontWeight:row.bold?600:400, fontStyle:isMemo?"italic":"normal", color:col, borderBottom:`1px solid ${s.div}`, whiteSpace:"nowrap"}}>
                       {display}
                     </td>
                   );
@@ -681,8 +682,12 @@ function RebatesView({s}) {
 // MOVEMENT MODAL (redesigned)
 // ════════════════════════════════════════════════════
 function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
-  const [form, setForm] = useState(movement ? {...movement} : {date:"2026-06-24", contract:"piramides", category:"payroll_team", amount:"", desc:"", method:"wire"});
-  const up = (k,v) => setForm(p=>({...p,[k]:v}));
+  const defaultAc = (cat) => CAT[cat]?.defaultAc ?? true;
+  const [form, setForm] = useState(movement ? {...movement, ac:movement.ac??defaultAc(movement.category)} : {date:"2026-06-24", contract:"piramides", category:"payroll_team", amount:"", desc:"", method:"wire", ac:true});
+  const up = (k,v) => {
+    if (k==="category") setForm(p=>({...p, category:v, ac:defaultAc(v)}));
+    else setForm(p=>({...p,[k]:v}));
+  };
   const isDesktop = typeof window!=="undefined" && window.innerWidth >= 640;
 
   const overlay = {position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:200, backdropFilter:"blur(3px)"};
@@ -716,6 +721,17 @@ function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
             <div><label style={lbl}>Método</label><select value={form.method||""} onChange={e=>up("method",e.target.value||null)} style={{...inp,cursor:"pointer"}}><option value="">N/A</option><option value="wire">Transferencia</option><option value="cash">Efectivo</option></select></div>
           </div>
           <div><label style={lbl}>Descripción</label><input type="text" value={form.desc} onChange={e=>up("desc",e.target.value)} placeholder="Descripción del movimiento" style={inp} /></div>
+
+          {/* Affects accountants toggle */}
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", border:`1px solid ${s.div}`, borderRadius:8, background:s.inputBg}}>
+            <div>
+              <div style={{fontSize:13, fontWeight:500}}>Pasa por contadores</div>
+              <div style={{fontSize:11, color:s.sub, marginTop:2}}>{form.ac?"Afecta el saldo de contadores":"No afecta — sale directo de bóveda o socio"}</div>
+            </div>
+            <button onClick={()=>setForm(p=>({...p,ac:!p.ac}))} style={{width:44, height:26, borderRadius:13, border:"none", cursor:"pointer", padding:2, background:form.ac?s.acc:`${s.muted}40`, transition:"background .2s", display:"flex", alignItems:"center"}}>
+              <div style={{width:22, height:22, borderRadius:"50%", background:"#fff", transition:"transform .2s", transform:form.ac?"translateX(18px)":"translateX(0)"}} />
+            </button>
+          </div>
 
           {/* PHASE 2: POST to Supabase */}
           <div style={{display:"flex", alignItems:"center", gap:12, marginTop:8}}>
@@ -759,7 +775,7 @@ export default function Corregidora() {
 
   const fetchMovements = useCallback(async () => {
     const {data} = await supabase.from("movements").select("*").order("date", {ascending:false}).order("created_at", {ascending:false});
-    if (data) setMvs(data.map(m => ({...m, desc:m.description, by:m.role, amount:+m.amount})));
+    if (data) setMvs(data.map(m => ({...m, desc:m.description, by:m.role, amount:+m.amount, ac:m.affects_accountants})));
     setLoading(false);
   }, []);
 
@@ -855,10 +871,10 @@ export default function Corregidora() {
         <MovementModal s={s} movement={editing} role={role}
           onSave={async(m)=>{
             if(editing){
-              await supabase.from("movements").update({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc, method:m.method||null}).eq("id",editing.id);
+              await supabase.from("movements").update({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc, method:m.method||null, affects_accountants:m.ac}).eq("id",editing.id);
               setEditing(null);
             } else {
-              await supabase.from("movements").insert({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc||'', method:m.method||null, role:role});
+              await supabase.from("movements").insert({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc||'', method:m.method||null, role:role, affects_accountants:m.ac});
               setAdding(false);
             }
             fetchMovements();
