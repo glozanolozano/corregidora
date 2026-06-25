@@ -32,7 +32,8 @@ const ML = ym => ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","N
 const CAT = {
   income:              { label:"Ingreso municipal",          sign:+1, ac:true,  icon:"↓", color:"#2D7A4F" },
   commission:          { label:"Comisión contadores",        sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
-  payroll:             { label:"Nómina",                     sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
+  payroll_team:        { label:"Nómina equipo",              sign:-1, ac:true,  icon:"↑", color:"#B8453A" },
+  payroll_gl:          { label:"Salario GL",                 sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
   rebate:              { label:"Reembolso al municipio",     sign:-1, ac:true,  icon:"↑", color:"#C07B2C" },
   reserve_fund:        { label:"Fondo de reserva",           sign:-1, ac:true,  icon:"↑", color:"#4A5E80" },
   extraordinary:       { label:"Gasto extraordinario",       sign:-1, ac:false, icon:"↑", color:"#B8453A" },
@@ -126,17 +127,33 @@ function DashboardView({s, mvs}) {
   const mm       = mvs.filter(m=>m.date.startsWith(curMonth));
   const inc      = mm.filter(m=>m.category==="income").reduce((s,m)=>s+m.amount,0);
   const com      = mm.filter(m=>m.category==="commission").reduce((s,m)=>s+m.amount,0);
-  const pay      = mm.filter(m=>m.category==="payroll").reduce((s,m)=>s+m.amount,0);
+  const payTeam  = mm.filter(m=>m.category==="payroll_team").reduce((s,m)=>s+m.amount,0);
+  const payGL    = mm.filter(m=>m.category==="payroll_gl").reduce((s,m)=>s+m.amount,0);
   const reb      = mm.filter(m=>m.category==="rebate").reduce((s,m)=>s+m.amount,0);
   const rsv      = mm.filter(m=>m.category==="reserve_fund").reduce((s,m)=>s+m.amount,0);
   const ext      = mm.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
   const dist     = mm.filter(m=>m.category==="profit_distribution").reduce((s,m)=>s+m.amount,0);
   const loanPay  = mm.filter(m=>m.category==="loan_repayment").reduce((s,m)=>s+m.amount,0);
-  const totalExp = com+pay+reb+rsv+ext;
+  const totalExp = com+payTeam+payGL+reb+rsv+ext;
   const profit   = inc - totalExp;
+
+  // Acumulados mes a mes
+  const accumData = useMemo(() => {
+    let profitAcc = 0, reserveAcc = 0;
+    return MONTHS_ALL.map(ym => {
+      const mo = mvs.filter(m=>m.date.startsWith(ym));
+      const mInc = mo.filter(m=>m.category==="income").reduce((s,m)=>s+m.amount,0);
+      const mExp = mo.filter(m=>["commission","payroll_team","payroll_gl","rebate","reserve_fund","extraordinary"].includes(m.category)).reduce((s,m)=>s+m.amount,0);
+      const mRsv = mo.filter(m=>m.category==="reserve_fund").reduce((s,m)=>s+m.amount,0);
+      const mExt = mo.filter(m=>m.category==="extraordinary").reduce((s,m)=>s+m.amount,0);
+      profitAcc += (mInc - mExp);
+      reserveAcc += (mRsv - mExt);
+      return {ym, profit:mInc-mExp, profitAcc, reserve:mRsv-mExt, reserveAcc, hasData:mo.length>0};
+    });
+  }, [mvs]);
+
   const section = {marginBottom:32};
   const row = {display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0"};
-  const divider = {borderBottom:`1px solid ${s.div}`};
   const labelSt = {fontSize:14, color:s.text};
   const valSt = {fontSize:14, fontVariantNumeric:"tabular-nums", fontWeight:500};
 
@@ -155,7 +172,7 @@ function DashboardView({s, mvs}) {
         {[
           {label:"Préstamos pendientes", val:loans, neg:loans>0},
           {label:"Fondo de reserva",     val:reserve},
-          {label:"Utilidad generada",    val:profit},
+          {label:"Utilidad del mes",     val:profit},
         ].map((item,i) => (
           <div key={i} style={{background:s.card, padding:"16px 18px"}}>
             <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>{item.label}</div>
@@ -167,6 +184,27 @@ function DashboardView({s, mvs}) {
             )}
           </div>
         ))}
+      </div>
+
+      {/* ── ACUMULADOS ── */}
+      <div style={section}>
+        <Eyebrow s={s} mb={14}>Acumulados — Abr a Dic 2026</Eyebrow>
+        <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
+          <div style={{display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr", padding:"10px 18px", borderBottom:`1px solid ${s.div}`, background:s.surf}}>
+            {["Mes","Utilidad","Ut. acumulada","Reserva","Rsv. acumulada"].map((h,i) => (
+              <div key={i} style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub, textAlign:i>0?"right":"left"}}>{h}</div>
+            ))}
+          </div>
+          {accumData.map((d,i) => (
+            <div key={d.ym} style={{display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr", padding:"10px 18px", borderBottom:i<accumData.length-1?`1px solid ${s.div}`:"none", opacity:d.hasData?1:0.35}}>
+              <div style={{fontSize:13, fontWeight:500}}>{ML(d.ym)}</div>
+              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.profit<0?s.neg:d.profit>0?s.text:s.muted}}>{d.hasData?$n(d.profit):"—"}</div>
+              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:d.profitAcc<0?s.neg:s.text}}>{d.hasData?$n(d.profitAcc):"—"}</div>
+              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", color:d.reserve>0?s.text:s.muted}}>{d.hasData&&d.reserve>0?$n(d.reserve):"—"}</div>
+              <div style={{fontSize:13, fontVariantNumeric:"tabular-nums", textAlign:"right", fontWeight:600, color:s.text}}>{d.reserveAcc>0?$n(d.reserveAcc):"—"}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── INGRESOS & COBRANZAS ── */}
@@ -203,7 +241,8 @@ function DashboardView({s, mvs}) {
         <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
           {[
             {label:"Comisión contadores",        val:com},
-            {label:"Nómina",                     val:pay},
+            {label:"Nómina equipo",              val:payTeam},
+            {label:"Salario GL",                 val:payGL},
             {label:"Reembolso al municipio",     val:reb},
             {label:"Fondo de reserva",           val:rsv},
             {label:"Gastos extraordinarios",     val:ext},
@@ -331,21 +370,22 @@ function IncomeView({s, mvs}) {
   const getData = (c, ym) => {
     const mm = mvs.filter(m => m.date.startsWith(ym) && (c==="all" || m.contract===c));
     const sum = k => mm.filter(m=>m.category===k).reduce((s,m)=>s+m.amount,0);
-    const inc=sum("income"), com=sum("commission"), pay=sum("payroll"), reb=sum("rebate"), rsv=sum("reserve_fund"), ext=sum("extraordinary"), dist=sum("profit_distribution");
-    const totalExp = com+pay+reb+rsv+ext;
-    return {inc, com, pay, reb, rsv, ext, gen:inc-totalExp, dist, ret:inc-totalExp-dist};
+    const inc=sum("income"), com=sum("commission"), payTeam=sum("payroll_team"), payGL=sum("payroll_gl"), reb=sum("rebate"), rsv=sum("reserve_fund"), ext=sum("extraordinary"), dist=sum("profit_distribution");
+    const totalExp = com+payTeam+payGL+reb+rsv+ext;
+    return {inc, com, payTeam, payGL, reb, rsv, ext, gen:inc-totalExp, dist, ret:inc-totalExp-dist};
   };
 
   const ROWS = [
-    {key:"inc", label:"Ingresos",                 bold:false},
-    {key:"com", label:"Comisión contadores",       bold:false},
-    {key:"pay", label:"Nómina",                    bold:false},
-    {key:"reb", label:"Reembolso municipio",       bold:false},
-    {key:"rsv", label:"Fondo de reserva",          bold:false},
-    {key:"ext", label:"Gastos extraordinarios",    bold:false},
-    {key:"gen", label:"Utilidad generada",         bold:true, sep:true},
-    {key:"dist",label:"Utilidad distribuida",      bold:false},
-    {key:"ret", label:"Utilidad retenida",         bold:true, sep:true},
+    {key:"inc",     label:"Ingresos",                 bold:false},
+    {key:"com",     label:"Comisión contadores",       bold:false},
+    {key:"payTeam", label:"Nómina equipo",             bold:false},
+    {key:"payGL",   label:"Salario GL",                bold:false},
+    {key:"reb",     label:"Reembolso municipio",       bold:false},
+    {key:"rsv",     label:"Fondo de reserva",          bold:false},
+    {key:"ext",     label:"Gastos extraordinarios",    bold:false},
+    {key:"gen",     label:"Utilidad generada",         bold:true, sep:true},
+    {key:"dist",    label:"Utilidad distribuida",      bold:false},
+    {key:"ret",     label:"Utilidad retenida",         bold:true, sep:true},
   ];
 
   const data = MONTHS_ALL.map(ym => getData(tab, ym));
@@ -361,12 +401,12 @@ function IncomeView({s, mvs}) {
         <ExportBar s={s}
           onExcel={()=>{
             const header = ["Concepto", ...MONTHS_ALL.map(ym=>ML(ym))];
-            const rows = ROWS.map(row => [row.label, ...data.map(d => d[row.key]===0?"":(["com","pay","reb","rsv","ext","dist"].includes(row.key)?-d[row.key]:d[row.key]))]);
+            const rows = ROWS.map(row => [row.label, ...data.map(d => d[row.key]===0?"":(["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key)?-d[row.key]:d[row.key]))]);
             exportExcel(rows, header, `estado_resultados_${tab}`);
           }}
           onPDF={()=>{
             const header = ["Concepto", ...MONTHS_ALL.map(ym=>ML(ym))];
-            const rows = ROWS.map(row => [row.label, ...data.map(d => {const v=d[row.key]; const isE=["com","pay","reb","rsv","ext","dist"].includes(row.key); return v===0?"—":isE?`-$${$raw(v,0)}`:`$${$raw(v,0)}`;})]);
+            const rows = ROWS.map(row => [row.label, ...data.map(d => {const v=d[row.key]; const isE=["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key); return v===0?"—":isE?`-$${$raw(v,0)}`:`$${$raw(v,0)}`;})]);
             exportPDF(`Estado de resultados — ${TABS.find(t=>t.id===tab).label}`, header, rows, `estado_resultados_${tab}`, true);
           }}
         />
@@ -399,7 +439,7 @@ function IncomeView({s, mvs}) {
                 </td>
                 {data.map((d,mi) => {
                   const v = d[row.key];
-                  const isExp = ["com","pay","reb","rsv","ext","dist"].includes(row.key);
+                  const isExp = ["com","payTeam","payGL","reb","rsv","ext","dist"].includes(row.key);
                   const col = v===0 ? s.muted : (isExp||v<0) ? s.neg : s.text;
                   return (
                     <td key={mi} style={{padding:"14px 14px", fontSize:14, textAlign:"right", fontVariantNumeric:"tabular-nums", fontWeight:row.bold?600:400, color:col, borderBottom:`1px solid ${s.div}`, whiteSpace:"nowrap"}}>
@@ -630,7 +670,7 @@ function RebatesView({s}) {
 // MOVEMENT MODAL (redesigned)
 // ════════════════════════════════════════════════════
 function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
-  const [form, setForm] = useState(movement ? {...movement} : {date:"2026-06-24", contract:"piramides", category:"payroll", amount:"", desc:"", method:"wire"});
+  const [form, setForm] = useState(movement ? {...movement} : {date:"2026-06-24", contract:"piramides", category:"payroll_team", amount:"", desc:"", method:"wire"});
   const up = (k,v) => setForm(p=>({...p,[k]:v}));
   const isDesktop = typeof window!=="undefined" && window.innerWidth >= 640;
 
