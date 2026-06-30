@@ -944,9 +944,10 @@ const NAV = [
 ];
 
 export default function Corregidora() {
+  const isReginaURL = typeof window!=="undefined" && new URLSearchParams(window.location.search).get("vista") === "regina";
   const [dark,    setDark]    = useState(typeof window!=="undefined" && window.matchMedia("(prefers-color-scheme:dark)").matches);
   const [view,    setView]    = useState("dashboard");
-  const [role,    setRole]    = useState("owner");
+  const [role,    setRole]    = useState(isReginaURL ? "assistant" : "owner");
   const [drawer,  setDrawer]  = useState(false);
   const [mvs,     setMvs]     = useState([]);
   const [adding,  setAdding]  = useState(false);
@@ -983,12 +984,14 @@ export default function Corregidora() {
     return (
       <div>
         <ReginaView s={s} mvs={mvs} fetchMovements={fetchMovements} dark={dark} setDark={setDark} />
-        {/* Role toggle — bottom right corner */}
-        <div style={{position:"fixed", bottom:20, right:20, zIndex:50}}>
-          <button onClick={()=>setRole("owner")} style={{padding:"8px 14px", fontSize:11, fontWeight:500, background:s.card, color:s.sub, border:`1px solid ${s.div}`, borderRadius:8, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 2px 12px rgba(0,0,0,0.1)"}}>
-            Vista propietario →
-          </button>
-        </div>
+        {/* Role toggle — only visible when previewing from owner's sidebar, not from Regina's URL */}
+        {!isReginaURL && (
+          <div style={{position:"fixed", bottom:20, right:20, zIndex:50}}>
+            <button onClick={()=>setRole("owner")} style={{padding:"8px 14px", fontSize:11, fontWeight:500, background:s.card, color:s.sub, border:`1px solid ${s.div}`, borderRadius:8, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 2px 12px rgba(0,0,0,0.1)"}}>
+              Vista Guillermo →
+            </button>
+          </div>
+        )}
       </div>
     );
   }
