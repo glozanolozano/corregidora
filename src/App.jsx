@@ -758,6 +758,181 @@ function MovementModal({s, movement, role, onSave, onDelete, onClose}) {
 }
 
 // ════════════════════════════════════════════════════
+// REGINA — Vista exclusiva de asistente
+// ════════════════════════════════════════════════════
+const EXPENSE_CATS = Object.entries(CAT).filter(([,v]) => v.sign === -1).map(([k,v]) => ({id:k, label:v.label}));
+
+function ReginaView({s, mvs, onSave, onEdit, onDelete, fetchMovements, dark, setDark}) {
+  const [adding, setAdding]   = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [search, setSrch]     = useState("");
+
+  const myMvs = useMemo(() => {
+    return mvs
+      .filter(m => m.by === "assistant")
+      .filter(m => !search || m.desc.toLowerCase().includes(search.toLowerCase()))
+      .sort((a,b) => b.date.localeCompare(a.date) || (b.created_at||"").localeCompare(a.created_at||""));
+  }, [mvs, search]);
+
+  const totalMonth = useMemo(() => {
+    const now = new Date().toISOString().slice(0,7);
+    return myMvs.filter(m => m.date.startsWith(now)).reduce((s,m) => s + m.amount, 0);
+  }, [myMvs]);
+
+  const inp = {padding:"10px 14px", fontSize:14, fontFamily:"inherit", border:`1px solid ${s.div}`, borderRadius:8, background:s.inputBg, color:s.text, outline:"none", boxSizing:"border-box"};
+
+  return (
+    <div style={{minHeight:"100vh", background:s.bg, color:s.text, fontFamily:"'Inter Tight',-apple-system,sans-serif"}}>
+      {/* Header */}
+      <div style={{padding:"20px 24px", borderBottom:`1px solid ${s.div}`, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:17, fontWeight:500}}><span style={{color:s.acc, marginRight:5, fontSize:22}}>·</span>Corregidora</div>
+        </div>
+        <button onClick={()=>setDark(!dark)} style={{background:"none", border:"none", cursor:"pointer", padding:4, fontSize:16, color:s.sub}}>{dark?"☀":"☽"}</button>
+      </div>
+
+      <div style={{padding:"32px 24px", maxWidth:600, margin:"0 auto"}}>
+        {/* Greeting */}
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:26, fontWeight:600, letterSpacing:"-0.02em"}}>Hola, Regina</div>
+          <div style={{fontSize:14, color:s.sub, marginTop:6}}>Registra y consulta tus gastos</div>
+        </div>
+
+        {/* Summary card */}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden", marginBottom:28}}>
+          <div style={{background:s.card, padding:"18px 20px"}}>
+            <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>Gastos este mes</div>
+            <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums", color:totalMonth>0?s.neg:s.muted}}>{totalMonth>0?`−${$n(totalMonth)}`:"—"}</div>
+          </div>
+          <div style={{background:s.card, padding:"18px 20px"}}>
+            <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:8}}>Total registros</div>
+            <div style={{fontSize:24, fontWeight:400, fontVariantNumeric:"tabular-nums"}}>{myMvs.length}</div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20}}>
+          <div style={{position:"relative", flex:1, marginRight:12}}>
+            <input value={search} onChange={e=>setSrch(e.target.value)} placeholder="Buscar en mis gastos" style={{...inp, width:"100%", paddingLeft:36}} />
+            <span style={{position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:s.muted, fontSize:14}}>⌕</span>
+          </div>
+          <button onClick={()=>setAdding(true)} style={{display:"flex", alignItems:"center", gap:6, padding:"10px 18px", borderRadius:8, background:s.acc, color:"#fff", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:500, whiteSpace:"nowrap"}}>
+            + Nuevo gasto
+          </button>
+        </div>
+
+        {/* Movement list */}
+        <div>
+          {myMvs.length === 0 ? (
+            <div style={{padding:"60px 20px", textAlign:"center"}}>
+              <div style={{fontSize:32, marginBottom:12, opacity:0.2}}>☰</div>
+              <div style={{fontSize:15, color:s.sub}}>Aún no tienes gastos registrados</div>
+              <div style={{fontSize:13, color:s.muted, marginTop:6}}>Toca "+ Nuevo gasto" para empezar</div>
+            </div>
+          ) : myMvs.map((m,i) => {
+            const cat = CAT[m.category];
+            return (
+              <div key={m.id} onClick={()=>setEditing(m)}
+                style={{display:"flex", alignItems:"center", gap:14, padding:"14px 0", borderBottom:`1px solid ${s.div}`, cursor:"pointer"}}>
+                <div style={{width:36, height:36, borderRadius:"50%", background:`${cat.color}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+                  <span style={{fontSize:16, color:cat.color, lineHeight:1}}>{cat.icon}</span>
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:14, fontWeight:600, color:s.text}}>{m.desc || cat.label}</div>
+                  <div style={{fontSize:12, color:s.sub, marginTop:2}}>
+                    {fmtDate(m.date)} · {CONTRACTS[m.contract].label}
+                    {m.method && ` · ${m.method==="wire"?"Transferencia":"Efectivo"}`}
+                  </div>
+                </div>
+                <div style={{fontSize:14, fontWeight:600, fontVariantNumeric:"tabular-nums", color:s.neg, textAlign:"right", flexShrink:0}}>
+                  −{$n(m.amount,2)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {myMvs.length > 0 && <div style={{fontSize:12, color:s.sub, marginTop:16}}>{myMvs.length} gasto{myMvs.length!==1?"s":""}</div>}
+      </div>
+
+      {/* Add/Edit modal — expense categories only */}
+      {(adding || editing) && (
+        <ReginaModal s={s} movement={editing}
+          onSave={async(m) => {
+            if (editing) {
+              await supabase.from("movements").update({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc, method:m.method||null, affects_accountants:m.ac}).eq("id",editing.id);
+              setEditing(null);
+            } else {
+              await supabase.from("movements").insert({date:m.date, contract:m.contract, category:m.category, amount:m.amount, description:m.desc||'', method:m.method||null, role:"assistant", affects_accountants:m.ac});
+              setAdding(false);
+            }
+            fetchMovements();
+          }}
+          onDelete={async(id) => {
+            await supabase.from("movements").delete().eq("id",id);
+            setEditing(null);
+            fetchMovements();
+          }}
+          onClose={() => {setAdding(false); setEditing(null);}}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReginaModal({s, movement, onSave, onDelete, onClose}) {
+  const defaultAc = (cat) => CAT[cat]?.defaultAc ?? true;
+  const [form, setForm] = useState(movement ? {...movement, ac:movement.ac??defaultAc(movement.category)} : {date:new Date().toISOString().slice(0,10), contract:"piramides", category:"extraordinary", amount:"", desc:"", method:"cash", ac:false});
+  const up = (k,v) => {
+    if (k==="category") setForm(p=>({...p, category:v, ac:defaultAc(v)}));
+    else setForm(p=>({...p,[k]:v}));
+  };
+  const isDesktop = typeof window!=="undefined" && window.innerWidth >= 640;
+
+  const panel = isDesktop
+    ? {position:"fixed", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:440, maxHeight:"88vh", overflowY:"auto", background:s.card, borderRadius:14, padding:28, zIndex:201, boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}
+    : {position:"fixed", bottom:0, left:0, right:0, maxHeight:"88vh", overflowY:"auto", background:s.card, borderTopLeftRadius:16, borderTopRightRadius:16, padding:"24px 20px 40px", zIndex:201, boxShadow:"0 -8px 40px rgba(0,0,0,0.15)"};
+  const inp = {width:"100%", padding:"10px 14px", fontSize:14, fontFamily:"inherit", background:s.inputBg, border:`1px solid ${s.div}`, borderRadius:8, color:s.text, outline:"none", boxSizing:"border-box"};
+  const lbl = {display:"block", fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:6};
+
+  return (
+    <>
+      <div onClick={onClose} style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:200, backdropFilter:"blur(3px)"}} />
+      <div style={panel}>
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24}}>
+          <div>
+            <Eyebrow s={s} mb={4}>{movement?"Editar":"Nuevo"}</Eyebrow>
+            <div style={{fontSize:20, fontWeight:600}}>Gasto</div>
+          </div>
+          <button onClick={onClose} style={{background:"none", border:"none", cursor:"pointer", padding:6, fontSize:20, color:s.sub, lineHeight:1}}>✕</button>
+        </div>
+        <div style={{display:"flex", flexDirection:"column", gap:16}}>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+            <div><label style={lbl}>Fecha</label><input type="date" value={form.date} onChange={e=>up("date",e.target.value)} style={inp} /></div>
+            <div><label style={lbl}>Contrato</label><select value={form.contract} onChange={e=>up("contract",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="piramides">Pirámides</option><option value="socializadores">Socializadores</option></select></div>
+          </div>
+          <div><label style={lbl}>Tipo de gasto</label><select value={form.category} onChange={e=>up("category",e.target.value)} style={{...inp,cursor:"pointer"}}>{EXPENSE_CATS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></div>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+            <div><label style={lbl}>Monto (MXN)</label><input type="number" value={form.amount} onChange={e=>up("amount",e.target.value)} placeholder="0.00" style={inp} /></div>
+            <div><label style={lbl}>Método</label><select value={form.method||""} onChange={e=>up("method",e.target.value||null)} style={{...inp,cursor:"pointer"}}><option value="">N/A</option><option value="wire">Transferencia</option><option value="cash">Efectivo</option></select></div>
+          </div>
+          <div><label style={lbl}>Descripción</label><input type="text" value={form.desc} onChange={e=>up("desc",e.target.value)} placeholder="Descripción del gasto" style={inp} /></div>
+          <div style={{display:"flex", alignItems:"center", gap:12, marginTop:4}}>
+            {movement && (
+              <button onClick={()=>onDelete(movement.id)} style={{width:44, height:44, borderRadius:8, border:`1px solid ${s.neg}40`, background:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+                <span style={{fontSize:18, color:s.neg}}>🗑</span>
+              </button>
+            )}
+            <button onClick={()=>{if(form.amount&&form.date)onSave({...form,amount:+form.amount});}} style={{flex:1, padding:13, fontSize:14, fontWeight:600, background:s.acc, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit"}}>
+              {movement?"Guardar cambios":"Registrar gasto"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════
 // MAIN APP
 // ════════════════════════════════════════════════════
 const NAV = [
@@ -801,7 +976,22 @@ export default function Corregidora() {
     const h=()=>setMobile(window.innerWidth<700); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h);
   },[]);
 
-  const activeView = role==="assistant" ? "movements" : view;
+  const activeView = role==="assistant" ? null : view;
+
+  // ── ASSISTANT VIEW ──
+  if (role === "assistant") {
+    return (
+      <div>
+        <ReginaView s={s} mvs={mvs} fetchMovements={fetchMovements} dark={dark} setDark={setDark} />
+        {/* Role toggle — bottom right corner */}
+        <div style={{position:"fixed", bottom:20, right:20, zIndex:50}}>
+          <button onClick={()=>setRole("owner")} style={{padding:"8px 14px", fontSize:11, fontWeight:500, background:s.card, color:s.sub, border:`1px solid ${s.div}`, borderRadius:8, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 2px 12px rgba(0,0,0,0.1)"}}>
+            Vista propietario →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // PHASE 2: replace role toggle with real Supabase auth (JWT)
   const SidebarContent = () => (
@@ -826,7 +1016,7 @@ export default function Corregidora() {
       <div style={{borderTop:`1px solid ${s.div}`, padding:"18px 22px 0"}}>
         <div style={{fontSize:10, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:10}}>Rol</div>
         <div style={{display:"flex", gap:0, background:s.surf, borderRadius:7, padding:3, marginBottom:14}}>
-          {[["owner","Propietario"],["assistant","Asistente"]].map(([r,l])=>(
+          {[["owner","Guillermo"],["assistant","Regina"]].map(([r,l])=>(
             <button key={r} onClick={()=>{setRole(r);if(r==="assistant")setView("movements");}} style={{flex:1, padding:"6px 4px", fontSize:12, fontWeight:500, border:"none", borderRadius:5, cursor:"pointer", fontFamily:"inherit", transition:"all .12s", background:role===r?s.text:"transparent", color:role===r?(s===LIGHT?"#fff":"#000"):s.sub}}>{l}</button>
           ))}
         </div>
