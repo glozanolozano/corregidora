@@ -264,11 +264,6 @@ function DashboardView({s, mvs}) {
               <span style={{...valSt, color:item.val>0?s.neg:s.muted}}>{item.val>0?`−${$n(item.val)}`:"—"}</span>
             </div>
           ))}
-            <div key={i} style={{...row, padding:"11px 18px", borderBottom:i<arr.length-1?`1px solid ${s.div}`:"none"}}>
-              <span style={labelSt}>{item.label}</span>
-              <span style={{...valSt, color:item.val>0?s.neg:s.muted}}>{item.val>0?`−${$n(item.val)}`:"—"}</span>
-            </div>
-          ))}
         </div>
       </div>
 
