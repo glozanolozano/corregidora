@@ -31,8 +31,8 @@ const ML = ym => ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","N
 
 const CAT = {
   income:              { label:"Ingreso municipal",           cont:+1, disp:0,  expense:false, icon:"↓", color:"#2D7A4F" },
-  commission:          { label:"Comisión contadores",         cont:-1, disp:0,  expense:true,  icon:"↑", color:"#B8453A" },
-  funding:             { label:"Fondeo cuenta dispersión",    cont:-1, disp:+1, expense:false, icon:"↗", color:"#4A5E80" },
+  commission:          { label:"Comisión HEX",         cont:-1, disp:0,  expense:true,  icon:"↑", color:"#B8453A" },
+  funding:             { label:"Fondeo cuenta de dispersión",    cont:-1, disp:+1, expense:false, icon:"↗", color:"#4A5E80" },
   payroll_team:        { label:"Nómina equipo",               cont:0,  disp:-1, expense:true,  icon:"↑", color:"#B8453A" },
   payroll_gl:          { label:"Salario GL",                  cont:0,  disp:-1, expense:true,  icon:"↑", color:"#C07B2C" },
   supplies:            { label:"Insumos y materiales",        cont:0,  disp:-1, expense:true,  icon:"↑", color:"#B8453A" },
@@ -155,7 +155,7 @@ function DashboardView({s, mvs}) {
       {/* ── HERO — TWO BALANCES ── */}
       <div style={{...section, display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:12, overflow:"hidden"}}>
         <div style={{background:s.card, padding:"22px 24px"}}>
-          <Eyebrow s={s} mb={10}>Saldo contadores</Eyebrow>
+          <Eyebrow s={s} mb={10}>Saldo HEX</Eyebrow>
           <div style={{fontSize:38, fontWeight:280, letterSpacing:"-0.02em", lineHeight:1, fontVariantNumeric:"tabular-nums", color:contadores<0?s.neg:s.text}}>{$s(contadores,2)}</div>
         </div>
         <div style={{background:s.card, padding:"22px 24px"}}>
@@ -239,10 +239,10 @@ function DashboardView({s, mvs}) {
       <div style={section}>
         <Eyebrow s={s} mb={14}>Movimientos del mes</Eyebrow>
         <div style={{border:`1px solid ${s.div}`, borderRadius:10, overflow:"hidden"}}>
-          <div style={{padding:"10px 18px", background:s.surf, borderBottom:`1px solid ${s.div}`}}><div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub}}>Desde contadores</div></div>
+          <div style={{padding:"10px 18px", background:s.surf, borderBottom:`1px solid ${s.div}`}}><div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", color:s.sub}}>Desde HEX</div></div>
           {[
-            {label:"Comisión contadores",           val:com},
-            {label:"Fondeo cuenta dispersión",      val:fund},
+            {label:"Comisión HEX",           val:com},
+            {label:"Fondeo cuenta de dispersión",      val:fund},
             {label:"Reembolso al municipio",        val:reb},
             {label:"Fondo de reserva",              val:rsv},
             {label:"Retiro del socio",              val:dist},
@@ -287,6 +287,9 @@ function MovementsView({s, mvs, role, onAdd, onEdit, onDelete}) {
   const [search, setSrch] = useState("");
   const [asc, setAsc]   = useState(false);
 
+  const contadores = calcContadores(mvs);
+  const dispersion = calcDispersion(mvs);
+
   const list = useMemo(() => {
     return mvs
       .filter(m => (fC==="all" || m.contract===fC))
@@ -299,6 +302,18 @@ function MovementsView({s, mvs, role, onAdd, onEdit, onDelete}) {
 
   return (
     <div style={{padding:"32px 24px", maxWidth:860, margin:"0 auto"}}>
+      {/* ── BALANCES ── */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:s.div, borderRadius:10, overflow:"hidden", marginBottom:28}}>
+        <div style={{background:s.card, padding:"16px 20px"}}>
+          <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:6}}>Saldo HEX</div>
+          <div style={{fontSize:22, fontWeight:400, fontVariantNumeric:"tabular-nums", color:contadores<0?s.neg:s.text}}>{$s(contadores,2)}</div>
+        </div>
+        <div style={{background:s.card, padding:"16px 20px"}}>
+          <div style={{fontSize:10.5, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:s.sub, marginBottom:6}}>Cuenta de dispersión</div>
+          <div style={{fontSize:22, fontWeight:400, fontVariantNumeric:"tabular-nums", color:dispersion<0?s.neg:s.text}}>{$s(dispersion,2)}</div>
+        </div>
+      </div>
+
       <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24}}>
         <div>
           <Eyebrow s={s} mb={6}>Libro mayor</Eyebrow>
@@ -387,7 +402,7 @@ function IncomeView({s, mvs}) {
 
   const ROWS = [
     {key:"inc",     label:"Ingresos",                 bold:false},
-    {key:"com",     label:"Comisión contadores",       bold:false},
+    {key:"com",     label:"Comisión HEX",       bold:false},
     {key:"payTeam", label:"Nómina equipo",             bold:false},
     {key:"payGL",   label:"Salario GL",                bold:false},
     {key:"sup",     label:"Insumos y materiales",      bold:false},
@@ -528,7 +543,7 @@ function SettingsView({s}) {
         <div key={cid} style={{border:`1px solid ${s.div}`, borderRadius:10, padding:20, marginBottom:16}}>
           <div style={{fontSize:15, fontWeight:600, marginBottom:16, paddingBottom:14, borderBottom:`1px solid ${s.div}`}}>{CONTRACTS[cid].label}</div>
           <Field label="Ingreso mensual esperado" val={cfg[cid].monthly} onChange={v=>setCfg(p=>({...p,[cid]:{...p[cid],monthly:v}}))} />
-          <Field label="Comisión contadores (%)" val={cfg[cid].commission} onChange={v=>setCfg(p=>({...p,[cid]:{...p[cid],commission:v}}))} prefix="%" />
+          <Field label="Comisión HEX (%)" val={cfg[cid].commission} onChange={v=>setCfg(p=>({...p,[cid]:{...p[cid],commission:v}}))} prefix="%" />
           <Field label="Reembolso municipal mensual" val={cfg[cid].rebate} onChange={v=>setCfg(p=>({...p,[cid]:{...p[cid],rebate:v}}))} />
         </div>
       ))}
